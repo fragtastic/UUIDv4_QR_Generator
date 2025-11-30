@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>UUIDv4 QR Generator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      padding: 2rem;
+      background: #f5f5f5;
+    }
+    h1 {
+      margin: 0;
+    }
+    #uuid {
+      font-family: monospace;
+      padding: 0.5rem 1rem;
+      background: #fff;
+      border-radius: 0.4rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      word-break: break-all;
+    }
+    #qrcode {
+      background: #fff;
+      padding: 0.5rem;
+      border-radius: 0.4rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 0.4rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+      background: #2563eb;
+      color: white;
+    }
+    .quality-buttons {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .btn-quality {
+      background: #444;
+    }
+    .btn-quality.active {
+      background: #2563eb;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>UUIDv4 QR Generator</h1>
+
+  <div id="uuid">Loading…</div>
+
+  <div class="quality-buttons">
+    <button class="btn btn-quality active" data-q="L">L</button>
+    <button class="btn btn-quality" data-q="M">M</button>
+    <button class="btn btn-quality" data-q="Q">Q</button>
+    <button class="btn btn-quality" data-q="H">H</button>
+  </div>
+
+  <div id="qrcode"></div>
+
+  <button id="newUUID" class="btn">Generate New UUID</button>
+
+  <script>
+    // UUIDv4 generator with fallback
+    function uuidv4() {
+      if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return window.crypto.randomUUID();
+      }
+
+      if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+        const bytes = new Uint8Array(16);
+        window.crypto.getRandomValues(bytes);
+
+        // RFC 4122 version & variant bits
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+        const hex = Array.from(bytes, b => b.toString(16).padStart(2, "0"));
+        return (
+          hex[0] + hex[1] + hex[2] + hex[3] + "-" +
+          hex[4] + hex[5] + "-" +
+          hex[6] + hex[7] + "-" +
+          hex[8] + hex[9] + "-" +
+          hex[10] + hex[11] + hex[12] + hex[13] + hex[14] + hex[15]
+        );
+      }
+
+      // Non-crypto fallback (last resort)
+      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0,
+            v = c === "x" ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+
+    const uuidDiv = document.getElementById("uuid");
+    const qrDiv = document.getElementById("qrcode");
+    const newBtn = document.getElementById("newUUID");
+    const qualityButtons = document.querySelectorAll("[data-q]");
+
+    let currentQuality = "L";
+    let currentUUID = "";
+    let qr = null;
+
+    // Create or recreate QRCode instance with current quality
+    function createQRCodeInstance() {
+      // Remove any existing QR image/canvas completely
+      qrDiv.innerHTML = "";
+
+      qr = new QRCode(qrDiv, {
+        text: "",
+        width: 256,
+        height: 256,
+        correctLevel: QRCode.CorrectLevel[currentQuality]
+      });
+    }
+
+    function renderQR() {
+      if (!qr) createQRCodeInstance();
+      qr.clear();
+      qr.makeCode(currentUUID);
+    }
+
+    function generateNewUUID() {
+      currentUUID = uuidv4();
+      uuidDiv.textContent = currentUUID;
+      renderQR();
+    }
+
+    // Handle quality button clicks
+    qualityButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        currentQuality = btn.dataset.q;
+
+        // Update active button styling
+        qualityButtons.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+
+        // Recreate QRCode instance with new quality & render same UUID
+        createQRCodeInstance();
+        if (currentUUID) {
+          renderQR();
+        }
+      });
+    });
+
+    newBtn.addEventListener("click", generateNewUUID);
+
+    // Initial setup
+    createQRCodeInstance();
+    generateNewUUID();
+  </script>
+
+</body>
+</html>
