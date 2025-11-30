@@ -7,50 +7,116 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
   <style>
+    :root {
+      --bg-light: #f5f5f5;
+      --bg-dark: #020617;
+
+      --text-light: #111827;
+      --text-dark: #e5e7eb;
+
+      --card-light: #ffffff;
+      --card-dark: #0f172a;
+
+      --primary: #3b82f6;
+
+      --quality-bg-light: #4b5563;
+      --quality-bg-dark: #1e293b;
+
+      --quality-active: var(--primary);
+    }
+
     body {
+      margin: 0;
+      padding: 2rem 1rem;
       font-family: system-ui, sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 1rem;
-      padding: 2rem;
-      background: #f5f5f5;
+      min-height: 100vh;
+      transition: background 0.2s, color 0.2s;
     }
-    h1 {
-      margin: 0;
+
+    /* Light mode */
+    body.light {
+      background: var(--bg-light);
+      color: var(--text-light);
     }
-    #uuid {
-      font-family: monospace;
-      padding: 0.5rem 1rem;
-      background: #fff;
-      border-radius: 0.4rem;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-      word-break: break-all;
+
+    body.light #uuid,
+    body.light #qrcode {
+      background: var(--card-light);
     }
-    #qrcode {
-      background: #fff;
-      padding: 0.5rem;
-      border-radius: 0.4rem;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-    }
-    .btn {
-      padding: 0.5rem 1rem;
-      border: none;
-      border-radius: 0.4rem;
-      cursor: pointer;
-      font-size: 0.9rem;
-      background: #2563eb;
+
+    body.light .btn-quality {
+      background: var(--quality-bg-light);
       color: white;
     }
+
+    /* Dark mode */
+    body.dark {
+      background: var(--bg-dark);
+      color: var(--text-dark);
+    }
+
+    body.dark #uuid,
+    body.dark #qrcode {
+      background: var(--card-dark);
+    }
+
+    body.dark .btn-quality {
+      background: var(--quality-bg-dark);
+      color: white;
+    }
+
+    /* Shared button styles */
+    .btn {
+      padding: 0.6rem 1.2rem;
+      border: none;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      background: var(--primary);
+      color: white;
+      transition: filter 0.1s, transform 0.1s;
+    }
+
+    .btn:hover {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+
     .quality-buttons {
       display: flex;
       gap: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
     }
-    .btn-quality {
-      background: #444;
-    }
+
     .btn-quality.active {
-      background: #2563eb;
+      background: var(--quality-active) !important;
+    }
+
+    #uuid {
+      font-family: monospace;
+      padding: 0.6rem 1rem;
+      border-radius: 0.5rem;
+      word-break: break-all;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      max-width: 32rem;
+    }
+
+    #qrcode {
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+    }
+
+    /* Put toggle button at bottom center */
+    #themeToggle {
+      margin-top: 0.5rem;
+      background: #64748b;
+      font-size: 0.85rem;
     }
   </style>
 </head>
@@ -71,37 +137,46 @@
 
   <button id="newUUID" class="btn">Generate New UUID</button>
 
+  <!-- ▼ THEME TOGGLE NOW LIVES HERE ▼ -->
+  <button id="themeToggle" class="btn">Toggle Theme</button>
+
   <script>
-    // UUIDv4 generator with fallback
+    /* ----------------------- DARK MODE HANDLING ----------------------- */
+
+    const saved = localStorage.getItem("theme");
+
+    function applyTheme(mode) {
+      document.body.classList.remove("dark", "light");
+      document.body.classList.add(mode);
+    }
+
+    // Default = dark mode unless user has chosen otherwise
+    if (saved) {
+      applyTheme(saved);
+    } else {
+      applyTheme("dark");
+    }
+
+    document.getElementById("themeToggle").addEventListener("click", () => {
+      const newMode = document.body.classList.contains("dark") ? "light" : "dark";
+      applyTheme(newMode);
+      localStorage.setItem("theme", newMode);
+    });
+
+    /* ----------------------- QR + UUID LOGIC ----------------------- */
+
     function uuidv4() {
-      if (window.crypto && typeof window.crypto.randomUUID === "function") {
-        return window.crypto.randomUUID();
-      }
+      if (crypto.randomUUID) return crypto.randomUUID();
 
-      if (window.crypto && typeof window.crypto.getRandomValues === "function") {
-        const bytes = new Uint8Array(16);
-        window.crypto.getRandomValues(bytes);
+      const bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+      bytes[6] = (bytes[6] & 0x0f) | 0x40;
+      bytes[8] = (bytes[8] & 0x3f) | 0x80;
 
-        // RFC 4122 version & variant bits
-        bytes[6] = (bytes[6] & 0x0f) | 0x40;
-        bytes[8] = (bytes[8] & 0x3f) | 0x80;
-
-        const hex = Array.from(bytes, b => b.toString(16).padStart(2, "0"));
-        return (
-          hex[0] + hex[1] + hex[2] + hex[3] + "-" +
-          hex[4] + hex[5] + "-" +
-          hex[6] + hex[7] + "-" +
-          hex[8] + hex[9] + "-" +
-          hex[10] + hex[11] + hex[12] + hex[13] + hex[14] + hex[15]
-        );
-      }
-
-      // Non-crypto fallback (last resort)
-      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) {
-        var r = Math.random() * 16 | 0,
-            v = c === "x" ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-      });
+      return [...bytes].map((b, i) =>
+        (i === 4 || i === 6 || i === 8 || i === 10 ? "-" : "") +
+        b.toString(16).padStart(2, "0")
+      ).join("");
     }
 
     const uuidDiv = document.getElementById("uuid");
@@ -113,13 +188,9 @@
     let currentUUID = "";
     let qr = null;
 
-    // Create or recreate QRCode instance with current quality
     function createQRCodeInstance() {
-      // Remove any existing QR image/canvas completely
       qrDiv.innerHTML = "";
-
       qr = new QRCode(qrDiv, {
-        text: "",
         width: 256,
         height: 256,
         correctLevel: QRCode.CorrectLevel[currentQuality]
@@ -138,26 +209,21 @@
       renderQR();
     }
 
-    // Handle quality button clicks
     qualityButtons.forEach(btn => {
       btn.addEventListener("click", () => {
         currentQuality = btn.dataset.q;
 
-        // Update active button styling
         qualityButtons.forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
 
-        // Recreate QRCode instance with new quality & render same UUID
         createQRCodeInstance();
-        if (currentUUID) {
-          renderQR();
-        }
+        renderQR();
       });
     });
 
     newBtn.addEventListener("click", generateNewUUID);
 
-    // Initial setup
+    // Initial load
     createQRCodeInstance();
     generateNewUUID();
   </script>
