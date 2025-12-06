@@ -6,7 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="Generates QR code images with a random UUIDv4 in different qualities.">
   <link rel="manifest" href="manifest.webmanifest" />
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <script rel="preload" as="script" src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
   <style>
     :root {
@@ -237,8 +239,20 @@
     newBtn.addEventListener("click", generateNewUUID);
 
     // Initial load
-    createQRCodeInstance();
-    generateNewUUID();
+    function runInitialQR() {
+      createQRCodeInstance();
+      generateNewUUID();
+    }
+
+    // Let the page render first, then do QR work when the main thread is idle-ish
+    if ("requestIdleCallback" in window) {
+      requestIdleCallback(runInitialQR);
+    } else {
+      // Fallback for browsers without requestIdleCallback
+      window.addEventListener("load", () => {
+        setTimeout(runInitialQR, 0);
+      });
+    }
   </script>
 
 </body>
